@@ -1,0 +1,16 @@
+# 依赖（通过 package.json + package-lock.json 管理，克隆后 npm install 即可）
+node_modules/
+
+# 打包产物（npm run dist 重新生成）
+dist/
+
+# 日志与临时文件
+*.log
+builder-debug.yml
+
+# 自签名证书私钥（含私钥，不建议提交到公开仓库；如需复用请自行备份）
+build/wows-launcher.pfx
+
+# 系统文件
+.DS_Store
+Thumbs.db

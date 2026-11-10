@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WoWS Launcher</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- 自定义标题栏 -->
+  <header class="titlebar">
+    <div class="titlebar-brand">
+      <div class="logo">⚓</div>
+      <span class="app-name">WoWS Launcher</span>
+      <span class="app-tag" data-i18n="app_tag">第三方增强启动器</span>
+    </div>
+    <div class="titlebar-controls">
+      <button id="btn-min" class="tb-btn" data-i18n-title="minimize" title="最小化">&#x2500;</button>
+      <button id="btn-max" class="tb-btn" data-i18n-title="maximize" title="最大化">&#x25A1;</button>
+      <button id="btn-close" class="tb-btn tb-close" data-i18n-title="close" title="关闭">&#x2715;</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <!-- 侧边栏导航 -->
+    <nav class="sidebar">
+      <button class="nav-item active" data-page="home">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label" data-i18n="nav_home">主页</span>
+      </button>
+      <button class="nav-item" data-page="news">
+        <span class="nav-icon">📰</span>
+        <span class="nav-label" data-i18n="nav_news">新闻</span>
+      </button>
+      <button class="nav-item" data-page="games">
+        <span class="nav-icon">🚢</span>
+        <span class="nav-label" data-i18n="nav_games">游戏</span>
+      </button>
+      <button class="nav-item" data-page="mods">
+        <span class="nav-icon">🧩</span>
+        <span class="nav-label" data-i18n="nav_mods">模组</span>
+      </button>
+      <button class="nav-item" data-page="account">
+        <span class="nav-icon">👤</span>
+        <span class="nav-label" data-i18n="nav_account">账号</span>
+      </button>
+      <div class="sidebar-spacer"></div>
+      <button class="nav-item" data-page="settings">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label" data-i18n="nav_settings">设置</span>
+      </button>
+      <div class="sidebar-footer">
+        <span class="version-badge">v0.1.0</span>
+      </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="content">
+      <!-- 主页 -->
+      <section class="page active" id="page-home">
+        <div class="page-inner">
+          <div class="welcome-row">
+            <div>
+              <h1 class="welcome-title">欢迎回来，舰长</h1>
+              <p class="welcome-sub">尚未登录，点击右下角「账号」使用 Wargaming 账号登录</p>
+            </div>
+          </div>
+
+          <div class="hero">
+            <div class="hero-left">
+              <div class="game-emblem">⚓</div>
+              <div>
+                <h2 class="game-title">World of Warships</h2>
+                <div class="region-picker">
+                  <span class="game-desc" data-i18n="game_desc">战舰世界 ·</span>
+                  <select class="select region-select" id="region-select" data-i18n-title="switch_region" title="切换游戏区服">
+                    <option value="asia" data-i18n="region_asia">亚服 (Asia)</option>
+                    <option value="eu" data-i18n="region_eu">欧服 (EU)</option>
+                    <option value="na" data-i18n="region_na">美服 (NA)</option>
+                    <option value="ru" data-i18n="region_ru">俄服 (RU)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <button class="btn-launch" id="btn-launch">
+              <span class="btn-launch-icon">▶</span>
+              <span id="btn-launch-text">启动游戏</span>
+            </button>
+          </div>
+
+          <div class="cards-grid">
+            <div class="card">
+              <div class="card-head">
+                <span class="card-title" data-i18n="game_version">游戏版本</span>
+                <span class="card-head-right">
+                  <button class="btn-mini" id="btn-check-update" data-i18n-title="check_update" title="检查更新">↻</button>
+                  <span class="badge badge-info" id="game-status-badge">未检测</span>
+                </span>
+              </div>
+              <p class="card-value" id="game-status-value">--</p>
+              <p class="card-hint" id="game-status-hint">正在检测游戏客户端…</p>
+              <button class="btn-secondary btn-update" id="btn-update" data-i18n="update_now" hidden>立即更新</button>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <span class="card-title" data-i18n="server_status">服务器状态</span>
+                <span class="badge badge-ok" data-i18n="online">在线</span>
+              </div>
+              <p class="card-value" id="server-region-value">ASIA</p>
+              <p class="card-hint" data-i18n="current_region">当前游戏区服</p>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <span class="card-title" data-i18n="installed_mods">已安装模组</span>
+                <span class="badge">0</span>
+              </div>
+              <p class="card-value" data-i18n="mods_count">0 个</p>
+              <p class="card-hint" data-i18n="manage_mods">前往「模组」页管理</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3 class="panel-title" data-i18n="announcements">更新公告</h3>
+            <div class="notice-item">
+              <span class="notice-date">11-09</span>
+              <span class="notice-text" data-i18n="notice_demo">项目骨架已搭建完成，更多功能开发中…</span>
+            </div>
+            <div class="notice-empty" data-i18n="no_more_notices">暂无更多公告</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 新闻 -->
+      <section class="page" id="page-news">
+        <div class="page-inner">
+          <h1 class="page-title" data-i18n="news_title">官方新闻</h1>
+          <div class="mods-toolbar">
+            <span class="mods-path" id="news-source">—</span>
+            <button class="btn-secondary" id="btn-refresh-news" data-i18n="refresh">刷新</button>
+          </div>
+          <div class="news-list" id="news-list">
+            <div class="mods-empty" data-i18n="loading">加载中…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 游戏 -->
+      <section class="page" id="page-games">
+        <div class="page-inner">
+          <h1 class="page-title" data-i18n="game_clients">游戏客户端</h1>
+          <div class="mods-toolbar">
+            <button class="btn-secondary" id="btn-refresh-games" data-i18n="rescan">重新扫描</button>
+          </div>
+          <div class="games-list" id="games-list">
+            <div class="mods-empty" data-i18n="scanning">扫描中…</div>
+          </div>
+          <p class="mods-hint" data-i18n="games_hint">自动识别本机的战舰世界客户端：国际服 (WG)、俄服 (Lesta)、国服 (360)。</p>
+        </div>
+      </section>
+
+      <!-- 模组 -->
+      <section class="page" id="page-mods">
+        <div class="page-inner">
+          <h1 class="page-title" data-i18n="mod_management">模组管理</h1>
+          <div class="mods-toolbar">
+            <span class="mods-path" id="mods-path">检测中…</span>
+            <button class="btn-secondary" id="btn-refresh-mods" data-i18n="refresh">刷新</button>
+          </div>
+
+          <div class="aslain-card">
+            <div class="aslain-info">
+              <span class="aslain-title">Aslain's 整合包</span>
+              <span class="aslain-version" id="aslain-version">检测中…</span>
+            </div>
+            <button class="btn-primary" id="btn-download-aslain" data-i18n="download_installer">下载安装程序</button>
+          </div>
+
+          <div class="mods-list" id="mods-list">
+            <div class="mods-empty" data-i18n="loading">加载中…</div>
+          </div>
+          <p class="mods-hint" data-i18n="mods_hint">提示：把模组文件夹放入 res_mods 目录即可启用；开关用于启用/禁用；标「冲突」的模组与其他模组修改了相同文件。</p>
+        </div>
+      </section>
+
+      <!-- 账号 -->
+      <section class="page" id="page-account">
+        <div class="page-inner">
+          <h1 class="page-title" data-i18n="account_title">账号</h1>
+
+          <div class="account-card" id="account-profile" hidden>
+            <div class="avatar">👤</div>
+            <div class="account-info">
+              <p class="account-name" id="account-nickname">--</p>
+              <p class="account-hint" id="account-meta">--</p>
+            </div>
+            <button class="btn-secondary" id="btn-logout" data-i18n="logout">退出登录</button>
+          </div>
+
+          <div class="stats-panel" id="account-stats" hidden>
+            <h3 class="panel-title" data-i18n="stats_overview">战绩概览</h3>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <p class="stat-value" id="stat-battles">--</p>
+                <p class="stat-label" data-i18n="battles">场次</p>
+              </div>
+              <div class="stat-card">
+                <p class="stat-value" id="stat-wins">--</p>
+                <p class="stat-label" data-i18n="win_rate">胜率</p>
+              </div>
+              <div class="stat-card">
+                <p class="stat-value" id="stat-frags">--</p>
+                <p class="stat-label" data-i18n="frags">击沉</p>
+              </div>
+              <div class="stat-card">
+                <p class="stat-value" id="stat-damage">--</p>
+                <p class="stat-label" data-i18n="total_damage">总伤害</p>
+              </div>
+              <div class="stat-card">
+                <p class="stat-value" id="stat-maxxp">--</p>
+                <p class="stat-label" data-i18n="max_xp">最高经验</p>
+              </div>
+              <div class="stat-card">
+                <p class="stat-value" id="stat-survive">--</p>
+                <p class="stat-label" data-i18n="survive_rate">存活率</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" id="account-login-form">
+            <h3 class="panel-title" data-i18n="wg_login_title">使用 Wargaming 账号登录</h3>
+            <div class="form-row">
+              <label class="form-label" for="auth-region" data-i18n="server">服务器</label>
+              <select class="select" id="auth-region">
+                <option value="asia" selected data-i18n="region_asia">亚服 (Asia)</option>
+                <option value="eu" data-i18n="region_eu">欧服 (EU)</option>
+                <option value="na" data-i18n="region_na">美服 (NA)</option>
+                <option value="ru" data-i18n="region_ru">俄服 (RU)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="form-label" for="auth-app-id">Application ID</label>
+              <input class="input" id="auth-app-id" type="text" data-i18n-placeholder="app_id_placeholder" placeholder="从 developers.wargaming.net 获取" />
+            </div>
+            <button class="btn-primary" id="btn-login" data-i18n="login">登录</button>
+            <p class="form-hint"><span data-i18n="wg_login_hint">需先在 Wargaming 开发者平台（developers.wargaming.net）注册应用获取 Application ID，并在应用设置中把 Redirect URI 填为</span><code>http://localhost:8765/callback</code></p>
+          </div>
+
+          <div class="panel" id="lesta-login-form">
+            <h3 class="panel-title" data-i18n="lesta_login_title">使用 Lesta 账号登录（俄服）</h3>
+            <div class="form-row">
+              <label class="form-label" for="lesta-app-id">Lesta Application ID</label>
+              <input class="input" id="lesta-app-id" type="text" data-i18n-placeholder="lesta_app_id_placeholder" placeholder="从 developers.lesta.ru 获取" />
+            </div>
+            <button class="btn-primary" id="btn-lesta-login" data-i18n="lesta_login_btn">通过 Lesta 登录</button>
+            <p class="form-hint"><span data-i18n="lesta_login_hint">俄服（Lesta）账号与 Wargaming 账号相互独立。请在 developers.lesta.ru 注册应用获取 Application ID，并将 Redirect URI 填为</span><code>http://localhost:8765/callback</code></p>
+          </div>
+
+          <p class="account-note" data-i18n="account_note">登录基于 Wargaming / Lesta 官方 OpenID，令牌由官方签发，仅存储在本机，用于访问战绩与账号信息。</p>
+        </div>
+      </section>
+
+      <!-- 设置 -->
+      <section class="page" id="page-settings">
+        <div class="page-inner">
+          <h1 class="page-title" data-i18n="settings_title">设置</h1>
+
+          <div class="panel">
+            <h3 class="panel-title" data-i18n="language">语言</h3>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name" data-i18n="language">语言</p>
+                <p class="setting-desc" data-i18n="language_desc">选择界面显示语言，立即生效</p>
+              </div>
+              <select class="select" id="lang-select">
+                <option value="zh">中文</option>
+                <option value="en">English</option>
+                <option value="ru">Русский</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3 class="panel-title" data-i18n="launch_options">启动选项</h3>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name" data-i18n="minimize_after_launch">启动游戏后最小化启动器</p>
+                <p class="setting-desc" data-i18n="minimize_after_launch_desc">进入游戏后自动收起启动器窗口</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" checked />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name" data-i18n="auto_login">启动时自动登录</p>
+                <p class="setting-desc" data-i18n="auto_login_desc">打开启动器时自动尝试登录上次账号</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3 class="panel-title" data-i18n="game_client">游戏客户端</h3>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name" data-i18n="client_path">客户端路径</p>
+                <p class="setting-desc" id="game-path-value">未检测到</p>
+              </div>
+              <button class="btn-secondary" id="btn-detect-game" data-i18n="re_detect">重新检测</button>
+            </div>
+            <div class="form-row">
+              <label class="form-label" for="game-path-input" data-i18n="manual_path">手动指定安装目录</label>
+              <input class="input" id="game-path-input" type="text" data-i18n-placeholder="path_placeholder" placeholder="例如 C:\Games\World_of_Warships" />
+            </div>
+            <button class="btn-primary" id="btn-save-path" data-i18n="save_path">保存路径</button>
+            <p class="form-hint" data-i18n="path_hint">启动器会自动扫描常见安装位置；若未检测到，请手动填写客户端根目录（包含 WorldOfWarships.exe 的文件夹）。</p>
+          </div>
+
+          <div class="panel">
+            <h3 class="panel-title">Wargaming Game Center</h3>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name" data-i18n="wgc_bg">WGC 后台运行</p>
+                <p class="setting-desc" data-i18n="wgc_bg_desc">启动游戏时 WGC 会完全隐藏；若登录过期，点「打开 WGC」重新登录</p>
+              </div>
+              <button class="btn-secondary" id="btn-open-wgc" data-i18n="open_wgc">打开 WGC</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3 class="panel-title">Lesta Game Center</h3>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name" data-i18n="lgc_bg">LGC 后台运行</p>
+                <p class="setting-desc" data-i18n="lgc_bg_desc">启动俄服时 LGC 会完全隐藏；若登录过期，点「打开 LGC」重新登录</p>
+              </div>
+              <button class="btn-secondary" id="btn-open-lgc" data-i18n="open_lgc">打开 LGC</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3 class="panel-title" data-i18n="download_update">下载与更新</h3>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name" data-i18n="speed_limit">下载限速</p>
+                <p class="setting-desc" id="speed-limit-desc">限制 Game Center 的游戏下载速度</p>
+              </div>
+              <select class="select" id="download-speed-select">
+                <option value="-1" data-i18n="unlimited">不限速</option>
+                <option value="1048576">1 MB/s</option>
+                <option value="2097152">2 MB/s</option>
+                <option value="5242880">5 MB/s</option>
+                <option value="10485760">10 MB/s</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name" data-i18n="pre_download">提前下载更新</p>
+                <p class="setting-desc" data-i18n="pre_download_desc">允许 Game Center 提前下载即将到来的更新</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" checked />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <p class="form-hint" data-i18n="speed_limit_hint">限速会写入 Game Center 的 preferences.xml；若 Game Center 正在运行，需重启后生效。</p>
+          </div>
+
+          <div class="panel">
+            <h3 class="panel-title" data-i18n="desktop_shortcut">桌面快捷方式</h3>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name" data-i18n="shortcut_name">创建桌面快捷方式</p>
+                <p class="setting-desc" data-i18n="shortcut_desc">在桌面生成带图标的启动快捷方式，双击即可启动</p>
+              </div>
+              <button class="btn-primary" id="btn-create-shortcut" data-i18n="create_shortcut">创建快捷方式</button>
+            </div>
+            <p class="form-hint" id="shortcut-hint" data-i18n="shortcut_hint">快捷方式指向当前运行的应用；移动项目目录后需重新创建。</p>
+          </div>
+
+          <div class="panel">
+            <h3 class="panel-title" data-i18n="software_update">软件更新</h3>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name" data-i18n="current_version">当前版本</p>
+                <p class="setting-desc" id="update-status-text" data-i18n="update_idle">尚未检查更新</p>
+              </div>
+              <button class="btn-secondary" id="btn-check-update-app" data-i18n="check_update">检查更新</button>
+            </div>
+            <div class="update-progress hidden" id="update-progress">
+              <div class="update-progress-track"><div class="update-progress-fill" id="update-progress-fill"></div></div>
+              <p class="form-hint" id="update-progress-text"></p>
+            </div>
+            <div class="update-actions hidden" id="update-actions">
+              <button class="btn-primary" id="btn-download-update" data-i18n="download_update_btn">下载更新</button>
+              <button class="btn-primary" id="btn-install-update" data-i18n="install_update">安装并重启</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3 class="panel-title" data-i18n="about">关于</h3>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name">WoWS Launcher</p>
+                <p class="setting-desc" data-i18n="about_desc">版本 v0.1.0 · 非官方第三方启动器</p>
+              </div>
+              <span class="badge">Alpha</span>
+            </div>
+            <p class="about-note" data-i18n="about_note">本项目为社区爱好作品，与 Wargaming 无任何关联。游戏本体与更新仍由官方 WGC 完成。</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
