@@ -301,12 +301,17 @@ jobs:
           SETUP_NAME: ${{ steps.names.outputs.setup_name }}
         run: |
           # 单引号 here-string：不做 PowerShell 变量插值，内容全 ASCII，避免编码问题。
+          # ★ 脚本被写进 RUNNER_TEMP，Node 会按「脚本所在目录」解析 require，
+          #   直接用 require('app-builder-lib/...') 会 MODULE_NOT_FOUND。
+          #   必须用 createRequire 以项目 package.json 为基准解析项目 node_modules。
           $js = @'
           (async () => {
             const fs = require('fs');
             const path = require('path');
             const crypto = require('crypto');
-            const { buildBlockMap } = require('app-builder-lib/out/targets/blockmap/blockmap.js');
+            const { createRequire } = require('module');
+            const projectRequire = createRequire(path.join(process.cwd(), 'package.json'));
+            const { buildBlockMap } = projectRequire('app-builder-lib/out/targets/blockmap/blockmap.js');
 
             const setupName = process.env.SETUP_NAME;
             if (!setupName) throw new Error('SETUP_NAME is empty');
