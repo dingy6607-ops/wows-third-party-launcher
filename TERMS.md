@@ -87,7 +87,7 @@
 
 7.2 更新包的下载与安装由你在界面中触发或确认；安装更新会重启本软件。
 
-7.3 **当前正式发布版本未进行代码签名**：发布者申请 SignPath Foundation 免费开源代码签名计划未获批准（项目知名度不足），因此官方构建包同样未签名，Windows SmartScreen 可能提示「未知发布者」。本地 / 内测版本使用自签名证书。请仅从本仓库的 Releases 页面获取安装包，并按 [发布完整性说明](docs/SIGNING.md) 核对 sha512。若将来启用签名，本协议及发布说明会相应更新。
+7.3 **当前正式发布版本未进行代码签名**：发布者申请 SignPath Foundation 免费开源代码签名计划未获批准（项目知名度不足），因此官方构建包同样未签名，Windows SmartScreen 可能提示「未知发布者」。本地 / 内测版本使用自签名证书。作为补偿，发布流水线会为安装包及更新元数据生成 GitHub artifact attestation（SLSA build provenance），可证明其构建来源，但**不能替代代码签名、不会消除 SmartScreen 提示，且需使用者主动验证**。请仅从本仓库的 Releases 页面获取安装包，并按 [发布完整性说明](docs/SIGNING.md) 验证 attestation 与 sha512。若将来启用签名，本协议及发布说明会相应更新。
 
 ## 8. 知识产权
 

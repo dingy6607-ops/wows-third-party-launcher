@@ -41,9 +41,10 @@ Pipeline: [`.github/workflows/release.yml`](../.github/workflows/release.yml)
 
 1. Triggered **only** by pushing a `v*` tag (e.g. `v1.0.0`). Branch pushes and pull requests do not trigger a release.
 2. Runs on `windows-latest`, a GitHub-hosted runner.
-3. Steps: `actions/checkout` → `npm ci` (lockfile-pinned, reproducible) → `electron-builder` producing an **unsigned** installer → upload as a GitHub Actions artifact → optional signing branch (disabled by default) → rebuild `latest.yml` and `.blockmap` against the final installer → verify → create the GitHub Release.
+3. Steps: `actions/checkout` → `npm ci` (lockfile-pinned, reproducible) → `electron-builder` producing an **unsigned** installer → upload as a GitHub Actions artifact → optional signing branch (disabled by default) → rebuild `latest.yml` and `.blockmap` against the final installer → verify → generate artifact attestations → create the GitHub Release.
 4. The tag version is verified to match `package.json`'s `version` before any build.
 5. The CI build disables local code signing (`signExecutable: false`) and removes the local self-signed certificate configuration. No certificate or PFX exists in CI.
+6. `actions/attest@v4` generates SLSA build provenance for all three release assets. See [Build provenance attestation](#build-provenance-attestation).
 
 ### Optional signing branch
 
@@ -59,6 +60,25 @@ If signing is ever enabled, this policy will be revised to describe the issuing 
 
 Since installers are unsigned, the CI build sets `verifyUpdateCodeSignature: false`. This prevents electron-builder from writing a `publisherName` into `app-update.yml`, which would otherwise make electron-updater reject every unsigned update on Windows. Integrity is still protected by the SHA-512 in `latest.yml` and by HTTPS delivery from GitHub Releases.
 
+## Build provenance attestation
+
+Because no Authenticode certificate is available, the release workflow additionally generates **artifact attestations** (SLSA build provenance) using `actions/attest@v4`. These are signed with a short-lived Sigstore certificate bound to the workflow's OIDC identity and stored in GitHub's attestations API. They are free for public repositories and require no certificate or secret.
+
+**What this establishes:** the exact bytes of the installer, `latest.yml`, and `.exe.blockmap` were produced by this repository's tagged release workflow, on a GitHub-hosted runner. This protects against third-party tampering and binaries falsely presented as official releases.
+
+**What this does NOT do:** it is not an Authenticode signature. Windows does not consume it, SmartScreen still warns about an unknown publisher, and `Get-AuthenticodeSignature` still reports `NotSigned`. Verification is an explicit, manual step performed by the user.
+
+All three release assets are attested in a single attestation. The step runs **after** the installer's bytes are final (after the optional signing replacement and the metadata rebuild), because attestations bind to file digests and would be invalidated by any subsequent change.
+
+Verify any of the three files with the GitHub CLI:
+
+```bash
+gh attestation verify WoWS-Launcher-Setup-1.0.0.exe \
+  -R dingy6607-ops/wows-third-party-launcher
+```
+
+For offline verification, export the Sigstore bundle from the attestations API and use `gh attestation verify --bundle`; see the [GitHub documentation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/verifying-attestations-offline).
+
 ## Local / internal builds
 
 Local development builds (`npm run dist`) use a **locally generated self-signed certificate** (`build/wows-launcher.pfx`), which is excluded by `.gitignore` and never committed. These builds are for internal testing only; they are never published as a GitHub Release and are not official builds.
@@ -66,16 +86,22 @@ Local development builds (`npm run dist`) use a **locally generated self-signed 
 ## How to verify a release
 
 1. Download the installer from the repository's **Releases** page only — not from mirrors, file-sharing sites, or third-party re-uploads.
-2. Confirm the SHA-512 matches the value in `latest.yml` from the same release:
+2. **Verify the build provenance** (recommended):
+   ```bash
+   gh attestation verify WoWS-Launcher-Setup-1.0.0.exe \
+     -R dingy6607-ops/wows-third-party-launcher
+   ```
+   A successful verification cryptographically proves these bytes came from this repository's release workflow. The same command can be run against `latest.yml` and the `.blockmap` file.
+3. Confirm the SHA-512 matches the value in `latest.yml` from the same release:
    ```powershell
    $b = [IO.File]::ReadAllBytes(".\WoWS-Launcher-Setup-1.0.0.exe")
    [Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash($b))
    ```
    The size must also match the `size:` field in `latest.yml`.
-3. Confirm all three assets (`exe`, `latest.yml`, `.blockmap`) are present in that release.
-4. `Get-AuthenticodeSignature` returning `NotSigned` is expected at present; it does not by itself indicate a problem. Integrity is established by the hash check above and by the source of the download.
+4. Confirm all three assets (`exe`, `latest.yml`, `.blockmap`) are present in that release.
+5. `Get-AuthenticodeSignature` returning `NotSigned` is expected at present; it does not by itself indicate a problem. Integrity is established by the provenance attestation, the hash check, and the source of the download.
 
-Because the binary is unsigned, **the hash check plus the trusted download source are the only integrity controls**. Take both seriously.
+Because the binary is unsigned, **these verification steps are the only integrity controls**. Take them seriously — in particular, do not skip the attestation check when obtaining the installer from anywhere other than the Releases page.
 
 ## Reporting issues
 

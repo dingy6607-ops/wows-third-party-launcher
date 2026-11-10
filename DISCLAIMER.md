@@ -67,7 +67,13 @@
 
 7.2 **当前正式发布版本未进行代码签名**：发布者申请 SignPath Foundation 免费开源代码签名计划未获批准（项目知名度不足）。官方构建包与本地内测包均可能触发 Windows SmartScreen 的「未知发布者」提示，`Get-AuthenticodeSignature` 返回 `NotSigned` 属预期现象。为使未签名版本也能正常自动升级，构建时关闭了签名校验（`verifyUpdateCodeSignature: false`），因此**更新包不会经过 Authenticode 发布者验证**。
 
-7.3 **请仅从本仓库的 Releases 页面获取安装包**。发布者不对任何镜像站、网盘、第三方转载或篡改版本的完整性、安全性负责。由于程序未签名，**哈希校验与可信下载来源是仅有的完整性保障**：下载后务必对照同一 Release 中 `latest.yml` 的 `sha512` 与 `size` 字段核对文件（方法见 [发布完整性说明](docs/SIGNING.md)）。未做此校验而产生的风险由使用者自行承担。
+7.3 **请仅从本仓库的 Releases 页面获取安装包**。发布者不对任何镜像站、网盘、第三方转载或篡改版本的完整性、安全性负责。由于程序未签名，完整性依赖以下三项，下载后建议全部核对（方法见 [发布完整性说明](docs/SIGNING.md)）：
+
+- 使用 `gh attestation verify <file> -R dingy6607-ops/wows-third-party-launcher` 验证 GitHub artifact attestation（SLSA build provenance），确认文件确实由本仓库发布流程构建；
+- 对照同一 Release 中 `latest.yml` 的 `sha512` 与 `size` 字段核对文件；
+- 确认下载来源为本仓库 Releases 页面。
+
+attestation 由发布流水线免费生成，但**需要使用者主动验证**，且它证明的是构建来源、不是代码签名，Windows 不会自动校验，也不能消除 SmartScreen 提示。未完成上述核验而产生的风险由使用者自行承担。
 
 ## 8. 责任限制
 

@@ -34,6 +34,14 @@
 #   不含 publisherName，无签名版本也能正常自动升级（完整性仍由 latest.yml
 #   的 sha512 + HTTPS 保证）。若将来启用签名且希望 updater 校验发布者，
 #   需把证书 publisherName 配置到 win.signtoolOptions 并将此值改回 true。
+#
+# 关于 artifact attestation / SLSA provenance（免费，公开仓库可用）：
+#   由于拿不到 Authenticode 证书，本流水线额外用 actions/attest@v4 为最终发布的
+#   三个文件生成 SLSA build provenance（Sigstore 短时证书签名，存到 GitHub attestations API）。
+#   它证明「这些字节确实由本仓库的这次 tag workflow、在 GitHub-hosted runner 上构建」，
+#   即防第三方篡改 / 冒充发布；但它不是 Authenticode 签名，不能消除 SmartScreen。
+#   用户可用 gh attestation verify <file> -R dingy6607-ops/wows-third-party-launcher 验证。
+#   注意：attestation 绑定文件哈希，必须在 exe 字节最终确定之后才能生成（见步骤 9）。
 # =============================================================================
 
 name: Release
@@ -44,10 +52,15 @@ on:
     tags:
       - 'v*'
 
-# softprops 需要写 Release；[可选] SignPath action 需要读 workflow artifact / job 元数据
+# contents: write  → 创建 GitHub Release
+# actions: read    → [可选] SignPath action 读取 workflow artifact / job 元数据
+# id-token: write  → actions/attest 换取 Sigstore 短时签名证书（OIDC）
+# attestations: write → 把 provenance 写入 GitHub attestations API
 permissions:
   contents: write
   actions: read
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -351,7 +364,30 @@ jobs:
           Write-Host 'Verified: latest.yml sha512/size match the installer.'
 
       # -------------------------------------------------------------------
-      # 9. 创建 GitHub Release 并上传三件套
+      # 9. 生成 artifact attestation / SLSA build provenance（免费）
+      #    ★ 必须放在这里：exe 字节已最终确定（签名分支已替换、元数据已重建）。
+      #      attestation 绑定文件 SHA-256，在此之前生成会因文件变化而失效。
+      #    一次性把三个发布产物都纳入同一个 attestation：
+      #      安装包 exe、latest.yml（sha512 信任锚）、*.blockmap
+      #    生成的证明存到 GitHub attestations API，可在仓库 Actions → Attestations 查看。
+      #    验证：gh attestation verify <file> -R dingy6607-ops/wows-third-party-launcher
+      # -------------------------------------------------------------------
+      - name: Attest release artifacts
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            dist/${{ steps.names.outputs.setup_name }}
+            dist/latest.yml
+            dist/${{ steps.names.outputs.setup_name }}.blockmap
+          show-summary: true
+
+      - name: Log attestation
+        run: |
+          Write-Host "Attestation URL: ${{ steps.attest.outputs.attestation-url }}"
+
+      # -------------------------------------------------------------------
+      # 10. 创建 GitHub Release 并上传三件套
       #    latest.yml 的 url/path 指向的 exe 名必须与 Release asset 名完全一致，
       #    electron-updater 才会按 provider=github 找到并下载新版本。
       #    Release 说明里如实标注该版本是否经过代码签名。
@@ -371,7 +407,20 @@ jobs:
 
             ${{ steps.signing.outputs.notice }}
 
-            请仅从本仓库 Releases 页面下载，并可对照 `latest.yml` 中的 sha512 校验文件完整性。
+            请仅从本仓库 Releases 页面下载。
+
+            ### 验证下载来源（推荐）
+
+            本版本的安装包、`latest.yml`、`*.exe.blockmap` 均附有 GitHub artifact attestation（SLSA build provenance），可用 GitHub CLI 验证它们确实由本仓库的本次发布流程构建、且未被篡改：
+
+            ```bash
+            gh attestation verify ${{ steps.names.outputs.setup_name }} \
+              -R dingy6607-ops/wows-third-party-launcher
+            ```
+
+            也可对照 `latest.yml` 中的 `sha512` / `size` 核对文件完整性（方法见仓库 `docs/SIGNING.md`）。
+
+            > 注意：attestation 证明的是**构建来源**，不是 Authenticode 代码签名，因此不会消除 SmartScreen 的「未知发布者」提示。
 
             自动更新所需文件：`latest.yml`、`*.exe.blockmap`，请勿删除。
           files: |
