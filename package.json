@@ -19,8 +19,9 @@
     "productName": "WoWS Launcher",
     "electronDist": "node_modules/electron/dist",
     "publish": {
-      "provider": "generic",
-      "url": "https://example.com/wows-launcher/updates"
+      "provider": "github",
+      "owner": "dingy6607-ops",
+      "repo": "wows-third-party-launcher"
     },
     "directories": {
       "buildResources": "build",
