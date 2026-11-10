@@ -43,7 +43,7 @@ WoWS Launcher 是一个基于 Electron 的桌面启动器外壳，把「选择�
 
 1. 到仓库的 [Releases](https://github.com/dingy6607-ops/wows-third-party-launcher/releases) 页面下载最新的 `WoWS-Launcher-Setup-<version>.exe`。
 2. 双击运行安装向导，可选择是否创建桌面快捷方式。
-3. 首次运行若出现 Windows SmartScreen 提示，点「更多信息 → 仍要运行」（正式版由 SignPath Foundation 签名；内测版为自签名）。
+3. **当前正式版未进行代码签名**（SignPath Foundation 免费开源签名计划申请未通过）。首次运行若出现 Windows SmartScreen 提示，点「更多信息 → 仍要运行」。请只从本仓库 Releases 页面下载，并可对照同版本 `latest.yml` 中的 sha512 校验文件完整性，详见 [发布完整性说明](docs/SIGNING.md)。
 
 > **分享给他人时只需发送安装包 exe 这一个文件**。不要单独发送 `win-unpacked\WoWS Launcher.exe`，它依赖同目录的整包资源文件。
 
@@ -114,14 +114,16 @@ npm run dist:dir    # 仅生成免安装目录
 正式版由 [`.github/workflows/release.yml`](.github/workflows/release.yml) 在推送 `v*` 标签时自动完成：
 
 ```
-干净 CI 构建未签名包 → SignPath Foundation 签名 → 重建 latest.yml / blockmap → 创建 GitHub Release
+干净 CI 构建未签名包 → [可选] 代码签名 → 重建 latest.yml / blockmap → 创建 GitHub Release
 ```
 
 1. 修改 `package.json` 的 `version` 并提交；
 2. `git tag v<version> && git push origin v<version>`（tag 必须与 version 一致）；
 3. 流水线自动发布 exe、`latest.yml`、`*.exe.blockmap` 三个文件。
 
-签名策略见 [docs/SIGNING.md](docs/SIGNING.md)，所需仓库 secrets 见该 workflow 顶部注释。
+**默认不需要配置任何签名服务或 secret** 即可发布。SignPath Foundation 的免费开源签名申请未获批准（项目知名度不足），因此当前正式发布为未签名包；签名分支保留为可选，将来申请通过或改用其他证书时，在仓库设置变量 `SIGNPATH_ENABLED=true` 并补齐 5 个 secrets 即可启用，缺任意一个会自动回退为无签名发布。详见该 workflow 顶部注释与 [发布完整性说明](docs/SIGNING.md)。
+
+> CI 构建会设置 `verifyUpdateCodeSignature: false`，避免 `app-update.yml` 写入 `publisherName` 导致 electron-updater 拒绝安装未签名的更新包；完整性仍由 `latest.yml` 的 sha512 与 HTTPS 保证。
 
 ## 目录结构
 
@@ -131,7 +133,7 @@ npm run dist:dir    # 仅生成免安装目录
 ├── renderer/                   # 界面（index.html / renderer.js / styles.css）
 ├── scripts/                    # Game Center 窗口控制脚本
 ├── build/                      # 图标与本地自签名证书（证书不提交）
-├── docs/SIGNING.md             # 代码签名策略
+├── docs/SIGNING.md             # 发布完整性与签名状态说明
 ├── .github/workflows/          # 正式发布流水线
 ├── TERMS.md                    # 用户协议
 ├── DISCLAIMER.md               # 免责条款
@@ -142,7 +144,7 @@ npm run dist:dir    # 仅生成免安装目录
 
 - [用户协议](TERMS.md)
 - [免责条款](DISCLAIMER.md)
-- [代码签名策略](docs/SIGNING.md)
+- [发布完整性与签名状态说明](docs/SIGNING.md)
 - [MIT 许可证](LICENSE)
 
 ## 许可

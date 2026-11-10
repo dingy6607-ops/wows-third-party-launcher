@@ -1,55 +1,57 @@
 # =============================================================================
-# 正式发布流水线：未签名构建 → SignPath Foundation 免费开源签名 → GitHub Release
+# 正式发布流水线：干净 CI 构建 → [可选] 代码签名 → GitHub Release
 # -----------------------------------------------------------------------------
+# 背景：SignPath Foundation 的免费开源签名申请未通过（项目知名度不足），
+#       因此本流水线默认发布「未签名」安装包，无需任何签名服务即可完整跑通。
+#       签名能力保留为可选分支，将来申请通过或改用其他证书时打开开关即可。
+#
+# 【默认模式】不需要任何 secret，直接产出并发布未签名 Release。
+# 【可选签名】在仓库设置里：
+#   - 添加 Variable：SIGNPATH_ENABLED = true   （Settings → Secrets and variables → Actions → Variables）
+#   - 添加以下 5 个 Secrets（缺任意一个则自动回退到默认无签名模式）：
+#       SIGNPATH_API_TOKEN                    SignPath CI 提交用户的 API Token
+#       SIGNPATH_ORGANIZATION_ID              SignPath 组织 ID
+#       SIGNPATH_PROJECT_SLUG                 SignPath 项目 slug
+#       SIGNPATH_SIGNING_POLICY_SLUG          签名策略 slug
+#       SIGNPATH_ARTIFACT_CONFIGURATION_SLUG 产物配置 slug
+#   - SignPath 平台侧：关联 GitHub.com Trusted Build System、安装 SignPath GitHub App、
+#     创建 Artifact Configuration（根元素 <zip-file>，内部 <pe-file> 用 *.exe 匹配）。
+#   - 所有 SignPath 参数均从 secrets 读取，无任何硬编码。
+#
 # 与本地开发打包完全隔离：
-#   * 本地 `npm run dist` 继续使用 package.json 里的自签名证书做内测包，不受本文件影响。
-#   * 本流水线在干净的 GitHub-hosted runner 上「从头」编译，产出未签名包再交给 SignPath。
-#     （SignPath 不接受本地已签名的包，必须由可信 CI 现场构建）
-#   * 所有 SignPath 参数均来自仓库 Secrets，无任何硬编码。
+#   本地 `npm run dist` 继续用 package.json 里的自签名证书做内测包，不受本文件影响。
 #
-# 为什么签名后必须重建更新元数据（本文件最关键的一步）：
+# 为什么必须重建更新元数据：
 #   electron-builder 构建时生成的 latest.yml（sha512 / size）与 *.exe.blockmap
-#   都是基于「未签名」exe 计算的。SignPath 是外部签名，会改写 exe 字节，
-#   若不重算，electron-updater 下载后校验哈希失败 → 自动更新损坏。
-#   因此签名完成后会：覆盖 exe → 重算 sha512/size 回写 latest.yml → 重建 blockmap。
+#   基于构建当刻的 exe 计算。若走签名分支，外部签名会改写 exe 字节，
+#   不重算则 electron-updater 校验哈希失败 → 自动更新损坏。
+#   因此无论是否签名，最后都统一按「最终要发布的那个 exe」重建元数据。
 #
-# 需要添加的 Repository Secrets（Settings → Secrets and variables → Actions）：
-#   SIGNPATH_API_TOKEN                    SignPath CI 提交用户的 API Token
-#   SIGNPATH_ORGANIZATION_ID              SignPath 组织 ID
-#   SIGNPATH_PROJECT_SLUG                 SignPath 项目 slug
-#   SIGNPATH_SIGNING_POLICY_SLUG          签名策略 slug（release-signing / test-signing）
-#   SIGNPATH_ARTIFACT_CONFIGURATION_SLUG 产物配置 slug
-#
-# SignPath 平台侧一次性配置（app.signpath.io）：
-#   1. 通过 OSS 免费签名计划审核，创建 Organization / Project / Signing Policy。
-#   2. 把 GitHub.com 添加为 Trusted Build System 并关联到 Project；建议装 SignPath GitHub App。
-#   3. 【重要】Artifact Configuration 的根元素必须是 <zip-file>：
-#      actions/upload-artifact 默认把上传内容打包成 ZIP，SignPath 收到的就是 ZIP。
-#      在其内部定义一个 <pe-file> 元素匹配 Setup exe，并施加 Authenticode 签名。
-#      本流水线把产物名固定为 "WoWS-Launcher-Setup-<version>.exe"（无空格），
-#      建议在 Artifact Configuration 里用 *.exe 通配匹配，避免版本变化导致失配。
-#      若改用「不打包 ZIP」的上传方式，需同时给本 action 设 skip-decompress: true，
-#      并把 Artifact Configuration 的根元素改成 <pe-file>。
-#   4. OSS 计划要求所有 job 都跑在 GitHub-hosted runner 上 —— 本文件满足（windows-latest）。
-#   5. 本 action 默认 skip-decompress=false，签名产物会被解压到 signed/ 目录。
+# 为什么 CI 配置里必须设 verifyUpdateCodeSignature=false（关键）：
+#   electron-builder 默认会把 publisherName 写进 app-update.yml，
+#   electron-updater 在 Windows 上据此强制校验更新包的 Authenticode 签名。
+#   未签名包会因校验失败而无法安装更新。设为 false 后 app-update.yml
+#   不含 publisherName，无签名版本也能正常自动升级（完整性仍由 latest.yml
+#   的 sha512 + HTTPS 保证）。若将来启用签名且希望 updater 校验发布者，
+#   需把证书 publisherName 配置到 win.signtoolOptions 并将此值改回 true。
 # =============================================================================
 
-name: Release (SignPath signed)
+name: Release
 
-# 仅在推送 v 开头的 tag（v1.0.0 等）时触发；普通分支 push、PR、手动均不触发
+# 仅在推送 v 开头的 tag（v1.0.0 等）时触发；普通分支 push、PR 均不触发
 on:
   push:
     tags:
       - 'v*'
 
-# softprops 需要写 Release；SignPath action 需要读 workflow artifact / job 元数据
+# softprops 需要写 Release；[可选] SignPath action 需要读 workflow artifact / job 元数据
 permissions:
   contents: write
   actions: read
 
 jobs:
   release:
-    name: Build → SignPath → Release
+    name: Build → [Optional Sign] → Release
     runs-on: windows-latest
 
     defaults:
@@ -72,7 +74,6 @@ jobs:
       # tag 版本必须与 package.json 的 version 一致，否则 Setup exe / latest.yml
       # 里的版本号会和 Release tag 对不上，导致自动更新判断错误。
       - name: Verify tag matches package.json version
-        shell: pwsh
         run: |
           $tagVersion = '${{ github.ref_name }}'.TrimStart('v')
           $pkgVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
@@ -104,10 +105,12 @@ jobs:
       # 3. 准备「CI 专用」构建配置（只改 runner 的工作副本，不提交、不影响本地）
       #    a) 删除 win.signtoolOptions：CI 上没有 build/wows-launcher.pfx
       #       （已被 .gitignore 排除），不删会直接报证书缺失。
-      #    b) win.signExecutable=false：产出未签名 exe（SignPath 硬性要求）。
+      #    b) win.signExecutable=false：产出未签名 exe（签名服务硬性要求）。
       #       注意：electron-builder 26 的 -c 是 --config 的缩写，只接受配置
       #       文件路径，不支持 -c.win.xxx=yyy 点语法，所以改用改写配置的方式。
-      #    c) win.artifactName 固定为无空格名：
+      #    c) win.verifyUpdateCodeSignature=false：见文件头说明，保证无签名版
+      #       也能正常自动升级。
+      #    d) win.artifactName 固定为无空格名：
       #       默认产物名 "WoWS Launcher Setup 1.0.0.exe" 含空格，而 latest.yml
       #       里的 url 却是 "WoWS-Launcher-Setup-1.0.0.exe"，两者不一致会让
       #       electron-updater 在 Release 里找不到资源（404）。统一后完全一致。
@@ -123,9 +126,10 @@ jobs:
           const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           delete p.build.win.signtoolOptions;
           p.build.win.signExecutable = false;
+          p.build.win.verifyUpdateCodeSignature = false;
           p.build.win.artifactName = 'WoWS-Launcher-Setup-${version}.${ext}';
           fs.writeFileSync('package.json', JSON.stringify(p, null, 2));
-          console.log('[ci-config] signtoolOptions removed, signing disabled, artifactName unified');
+          console.log('[ci-config] local signing disabled, update-signature verification off, artifactName unified');
           '@
           $scriptPath = Join-Path $env:RUNNER_TEMP 'prepare-ci-config.js'
           Set-Content -LiteralPath $scriptPath -Value $js -Encoding utf8
@@ -136,7 +140,7 @@ jobs:
       # 4. 构建「未签名」NSIS 安装包
       #    CSC_IDENTITY_AUTO_DISCOVERY=false : 双保险，禁止自动发现任何证书
       #    --publish never                   : 不让 builder 自己发布，Release 由最后一步创建
-      #    latest.yml / *.blockmap 仍会生成，稍后按签名后的 exe 重建
+      #    latest.yml / *.blockmap 仍会生成，稍后按最终 exe 重建
       # -------------------------------------------------------------------
       - name: Build unsigned installer
         env:
@@ -155,15 +159,15 @@ jobs:
           $sig = Get-AuthenticodeSignature -FilePath $exe.FullName
           Write-Host "Setup: $($exe.Name)  $([math]::Round($exe.Length/1MB,2)) MB  signature=$($sig.Status)"
           if ($sig.SignerCertificate) {
-            throw 'Installer is already signed - SignPath requires an UNSIGNED build.'
+            throw 'Installer is already signed - the build must be unsigned.'
           }
           Write-Host 'Confirmed: unsigned build.'
           Get-ChildItem dist -File | ForEach-Object { Write-Host "  dist/$($_.Name)" }
 
       # -------------------------------------------------------------------
       # 5. 上传未签名 exe 为 workflow artifact
-      #    放进独立 staging 目录，使 ZIP 根目录只有一个 exe，便于 SignPath 的
-      #    Artifact Configuration 精确匹配；artifact-id 交给下一步读取。
+      #    默认模式下作为可核查的构建产物保留；签名模式下供 SignPath 读取。
+      #    放进独立 staging 目录，使 ZIP 根目录只有一个 exe。
       # -------------------------------------------------------------------
       - name: Stage unsigned exe
         run: |
@@ -181,12 +185,47 @@ jobs:
           retention-days: 7
 
       # -------------------------------------------------------------------
-      # 6. 提交 SignPath 签名请求并同步等待完成
+      # 6. 判定签名模式
+      #    仅当显式开启变量且 5 个 secrets 全部存在时才走签名分支；
+      #    否则自动回退到「无签名发布」，流水线不依赖任何签名服务即可跑通。
+      #    secrets 不能直接用于 if 表达式，故先经 env 在脚本里判断。
+      # -------------------------------------------------------------------
+      - name: Detect signing mode
+        id: signing
+        env:
+          SIGNPATH_ENABLED: ${{ vars.SIGNPATH_ENABLED }}
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_ORGANIZATION_ID: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          SIGNPATH_PROJECT_SLUG: ${{ secrets.SIGNPATH_PROJECT_SLUG }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}
+          SIGNPATH_ARTIFACT_CONFIGURATION_SLUG: ${{ secrets.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+        run: |
+          $wanted = $env:SIGNPATH_ENABLED -eq 'true'
+          $complete = -not [string]::IsNullOrEmpty($env:SIGNPATH_API_TOKEN) `
+            -and -not [string]::IsNullOrEmpty($env:SIGNPATH_ORGANIZATION_ID) `
+            -and -not [string]::IsNullOrEmpty($env:SIGNPATH_PROJECT_SLUG) `
+            -and -not [string]::IsNullOrEmpty($env:SIGNPATH_SIGNING_POLICY_SLUG) `
+            -and -not [string]::IsNullOrEmpty($env:SIGNPATH_ARTIFACT_CONFIGURATION_SLUG)
+          $enabled = $wanted -and $complete
+          "enabled=$($enabled.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          if ($enabled) {
+            "notice=本版本已经过代码签名。" >> $env:GITHUB_OUTPUT
+            Write-Host 'Signing mode: ENABLED (SignPath).'
+          } elseif ($wanted -and -not $complete) {
+            "notice=**本版本未进行代码签名**（签名配置不完整）。Windows SmartScreen 首次运行可能提示「未知发布者」，请点「更多信息 → 仍要运行」。" >> $env:GITHUB_OUTPUT
+            Write-Host '::warning::SIGNPATH_ENABLED=true but some secrets are missing - falling back to unsigned release.'
+          } else {
+            "notice=**本版本未进行代码签名**（SignPath Foundation 免费开源签名计划申请未通过）。Windows SmartScreen 首次运行可能提示「未知发布者」，请点「更多信息 → 仍要运行」。" >> $env:GITHUB_OUTPUT
+            Write-Host 'Signing mode: DISABLED -> publishing an unsigned release.'
+          }
+
+      # -------------------------------------------------------------------
+      # 7. [可选] 提交 SignPath 签名请求并同步等待完成
       #    wait-for-completion=true 时，签名产物会被下载并解压到 signed/。
-      #    所有参数均从 secrets / github.token 读取，无硬编码。
       # -------------------------------------------------------------------
       - name: Submit SignPath signing request
         id: signpath
+        if: steps.signing.outputs.enabled == 'true'
         uses: signpath/github-action-submit-signing-request@v2
         with:
           api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
@@ -201,21 +240,19 @@ jobs:
           output-artifact-directory: 'signed'
 
       - name: Log signing request
+        if: steps.signing.outputs.enabled == 'true'
         run: |
           Write-Host "Signing request id : ${{ steps.signpath.outputs.signing-request-id }}"
           Write-Host "SignPath URL       : ${{ steps.signpath.outputs.signing-request-web-url }}"
           Write-Host "Signed artifact URL: ${{ steps.signpath.outputs.signed-artifact-download-url }}"
 
-      # -------------------------------------------------------------------
-      # 7. 取回签名 exe 并覆盖 dist 中的未签名版本
-      #    兼容两种返回形态：直接解压出 exe，或仍包一层 ZIP。
-      #    按文件名精确匹配，避免取到卸载器 / 辅助 exe。
-      # -------------------------------------------------------------------
+      # [可选] 取回签名 exe 并覆盖 dist 中的未签名版本
+      # 兼容两种返回形态：直接解压出 exe，或仍包一层 ZIP；按文件名精确匹配。
       - name: Replace with signed installer
+        if: steps.signing.outputs.enabled == 'true'
         run: |
           $expected = '${{ steps.names.outputs.setup_name }}'
 
-          # 若签名产物仍是 ZIP，先展开
           Get-ChildItem -Path signed -Filter '*.zip' -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
             Expand-Archive -LiteralPath $_.FullName -DestinationPath (Join-Path signed '_expanded') -Force
           }
@@ -227,24 +264,30 @@ jobs:
 
           $sig = Get-AuthenticodeSignature -FilePath $signed.FullName
           Write-Host "Signed exe: $($signed.Name)  status=$($sig.Status)  signer=$($sig.SignerCertificate.Subject)"
-          # 自签/根未及时同步时状态可能是 UnknownError，只要求确实带有签名者证书
           if (-not $sig.SignerCertificate) { throw 'SignPath returned an exe without a signature.' }
 
           Copy-Item -LiteralPath $signed.FullName -Destination (Join-Path dist $expected) -Force
           Write-Host 'dist/ installer replaced with signed build.'
 
+      # 默认分支：不签名，直接使用构建产出的未签名 exe（仅记录日志）
+      - name: Skip signing
+        if: steps.signing.outputs.enabled != 'true'
+        run: |
+          Write-Host 'Publishing an UNSIGNED installer (no signing service configured).'
+          Write-Host 'Windows SmartScreen may show an "unknown publisher" warning on first run.'
+
       # -------------------------------------------------------------------
-      # 8. 重建 electron-updater 元数据（关键）
+      # 8. 重建 electron-updater 元数据（无论是否签名都执行）
       #    a) latest.yml：只替换 sha512 与 size，其余（version/path/url/releaseDate）不变
       #    b) *.blockmap：调用 electron-builder 自带的纯 JS buildBlockMap 重建
       #       （不依赖 app-builder.exe 二进制，npm ci 后必定可用；gzip + version 2）
+      #    c) 同时确认 app-update.yml 不含 publisherName，避免无签名版升级被拒
       # -------------------------------------------------------------------
       - name: Rebuild latest.yml and blockmap
         env:
           SETUP_NAME: ${{ steps.names.outputs.setup_name }}
         run: |
-          # 用 here-string 生成临时 Node 脚本；单引号 here-string 不做变量插值，
-          # 且内容全为 ASCII，避免 PowerShell 管道 / 编码问题。
+          # 单引号 here-string：不做 PowerShell 变量插值，内容全 ASCII，避免编码问题。
           $js = @'
           (async () => {
             const fs = require('fs');
@@ -273,11 +316,16 @@ jobs:
 
             await buildBlockMap(exePath, 'gzip', mapPath, {});
 
-            console.log(`[metadata] setup    = ${setupName}`);
-            console.log(`[metadata] size     = ${size}`);
-            console.log(`[metadata] sha512   = ${sha512.slice(0, 24)}...`);
+            const appUpdate = path.join(path.resolve('dist/win-unpacked/resources'), 'app-update.yml');
+            if (fs.existsSync(appUpdate) && /\bpublisherName\s*:/.test(fs.readFileSync(appUpdate, 'utf8'))) {
+              throw new Error('app-update.yml still contains publisherName; unsigned updates would be rejected.');
+            }
+
+            console.log(`[metadata] setup      = ${setupName}`);
+            console.log(`[metadata] size       = ${size}`);
+            console.log(`[metadata] sha512     = ${sha512.slice(0, 24)}...`);
             console.log(`[metadata] latest.yml = ${fs.statSync(ymlPath).size} bytes`);
-            console.log(`[metadata] blockmap = ${fs.statSync(mapPath).size} bytes`);
+            console.log(`[metadata] blockmap   = ${fs.statSync(mapPath).size} bytes`);
           })().catch((e) => { console.error(e); process.exit(1); });
           '@
           $scriptPath = Join-Path $env:RUNNER_TEMP 'rebuild-update-metadata.js'
@@ -285,7 +333,7 @@ jobs:
           node $scriptPath
           if ($LASTEXITCODE -ne 0) { throw 'Rebuilding update metadata failed.' }
 
-      # 发布前最后校验，避免上传残缺产物；并核对 latest.yml 的哈希确实等于签名 exe
+      # 发布前最后校验，避免上传残缺产物；并核对 latest.yml 的哈希等于最终 exe
       - name: Verify release assets
         run: |
           $setup = Join-Path dist '${{ steps.names.outputs.setup_name }}'
@@ -298,14 +346,15 @@ jobs:
           $hasher = [System.Security.Cryptography.SHA512]::Create()
           try { $b64 = [Convert]::ToBase64String($hasher.ComputeHash($bytes)) } finally { $hasher.Dispose() }
           $yml = Get-Content (Join-Path dist 'latest.yml') -Raw
-          if (-not $yml.Contains($b64)) { throw 'latest.yml sha512 does not match the signed exe.' }
-          if (-not $yml.Contains("size: $($bytes.Length)")) { throw 'latest.yml size does not match the signed exe.' }
-          Write-Host 'Verified: latest.yml sha512/size match the signed installer.'
+          if (-not $yml.Contains($b64)) { throw 'latest.yml sha512 does not match the final exe.' }
+          if (-not $yml.Contains("size: $($bytes.Length)")) { throw 'latest.yml size does not match the final exe.' }
+          Write-Host 'Verified: latest.yml sha512/size match the installer.'
 
       # -------------------------------------------------------------------
       # 9. 创建 GitHub Release 并上传三件套
       #    latest.yml 的 url/path 指向的 exe 名必须与 Release asset 名完全一致，
       #    electron-updater 才会按 provider=github 找到并下载新版本。
+      #    Release 说明里如实标注该版本是否经过代码签名。
       # -------------------------------------------------------------------
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -315,6 +364,16 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+          body: |
+            ### 安装说明 / Installation
+
+            下载 `${{ steps.names.outputs.setup_name }}` 并运行安装向导。
+
+            ${{ steps.signing.outputs.notice }}
+
+            请仅从本仓库 Releases 页面下载，并可对照 `latest.yml` 中的 sha512 校验文件完整性。
+
+            自动更新所需文件：`latest.yml`、`*.exe.blockmap`，请勿删除。
           files: |
             dist/${{ steps.names.outputs.setup_name }}
             dist/latest.yml
